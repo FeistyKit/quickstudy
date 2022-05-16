@@ -4,7 +4,7 @@ use std::{fmt, iter};
 fn main() -> Result<(), String> {
     init()?;
 
-    let q = Question::new(["q1 ", " q2 ", " q3 "], ["a1", "a2", "a3"]);
+    let q = Question::new(["q1", "q2", "q3"], ["a1", "a2", "a3"], true);
 
     let answer = q.ask();
 
@@ -59,64 +59,104 @@ fn get_char() -> char {
     }
 }
 
+fn pad_str(i: String) -> String {
+    let mut t = String::with_capacity(i.len());
+    t.push(' ');
+    t.push_str(i.trim());
+    t.push(' ');
+    t
+}
+
 impl Question {
 
     fn new<T: ToString>(
         questions: impl iter::IntoIterator<Item = T>,
         answers: impl iter::IntoIterator<Item = T>,
+        mut answer_first: bool,
     ) -> Self {
-        let mut questions = questions.into_iter().map(|x| x.to_string());
-        let mut answers = answers.into_iter().map(|x| x.to_string());
+        let mut questions = questions.into_iter().map(|x| pad_str(x.to_string()));
+        let mut answers = answers.into_iter().map(|x| pad_str(x.to_string()));
 
         let mut dat = Vec::new();
 
         loop {
-            let next_q = questions.next();
+
+            let next_q = if answer_first {
+                answer_first = false;
+                None
+            } else {
+                questions.next()
+            };
+
             let next_a = answers.next();
+
             if next_q.is_some() || next_a.is_some() {
                 dat.push((next_q, next_a));
             } else {
                 break
             }
+
         }
+
         Self {
             dat
         }
+
     }
 
-    fn ask(&self) -> bool {
+    fn ask(&self, screen: &mut String) -> bool {
         let mut answers = Vec::new();
         let mut current = String::new();
         let mut correct = true;
 
-        self.render_partially_answered(&answers, &current);
-
+        self.render_partially_answered(&answers, &current, &*screen);
 
         for (_, answer) in &self.dat {
+
             if let Some(a) = answer {
+
                 'word: loop {
+
                     let ch = get_char();
-                    if ch == '\n' {
-                        if a != &current {
-                            correct = false;
-                        }
-                        answers.push(current);
-                        current = String::new();
-                        self.render_partially_answered(&answers, &current);
-                        break 'word;
-                    } else {
-                        current.push(ch);
+
+
+                    match ch {
+                        '\n' => {
+                            if a.trim() != current {
+                                correct = false;
+                            }
+
+                            answers.push(current);
+                            current = String::new();
+
+                            self.render_partially_answered(&answers, &current, &*screen);
+
+                            break 'word;
+
+                        },
+                        _ => {
+                            if ch as u32 == 127 {
+                                // TODO: Going back and editing previous answers
+                                // if let None = current.pop() {
+                                //     if let Some(ans) = answers.pop() {
+                                //         current = ans;
+                                //     }
+                                // }
+                                current.pop();
+                            } else {
+                                current.push(ch);
+                            }
+                        },
                     }
-                    self.render_partially_answered(&answers, &current);
-                    print(format!("\nch = `{ch}`"));
+
+                    self.render_partially_answered(&answers, &current, &*screen);
                 }
             }
         }
         correct
     }
 
-    fn render_partially_answered(&self, answers: &[String], current: &str) {
-        ncurses::clear();
+    fn render_partially_answered(&self, answers: &[String], current: &str, scr: &str) {
 
         let mut to_render = String::new();
         let mut pos = 0;
