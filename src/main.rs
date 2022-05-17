@@ -11,7 +11,12 @@ mod tests {
 
         let question = Parser::new(&src).next();
 
-        assert_eq!(Some(Ok(Question {dat: vec![(Option::<String>::None, Some("answer".to_string()))]})), question);
+        assert_eq!(
+            Some(Ok(Question {
+                dat: vec![(Option::<String>::None, Some("answer".to_string()))]
+            })),
+            question
+        );
     }
 
     #[test]
@@ -29,7 +34,10 @@ mod tests {
 
         let question = Parser::new(&src).next();
 
-        assert_eq!(Some(Err(String::from("Unexpected end of answer!"))), question);
+        assert_eq!(
+            Some(Err(String::from("Unexpected end of answer!"))),
+            question
+        );
     }
 
     #[test]
@@ -38,7 +46,15 @@ mod tests {
 
         let question = Parser::new(&src).next();
 
-        assert_eq!(Some(Ok(Question {dat: vec![(Some("question ".to_string()), Some("answer".to_string())), (Some(" question ".to_string()), Some("answer".to_string()))]})), question);
+        assert_eq!(
+            Some(Ok(Question {
+                dat: vec![
+                    (Some("question ".to_string()), Some("answer".to_string())),
+                    (Some(" question ".to_string()), Some("answer".to_string()))
+                ]
+            })),
+            question
+        );
     }
 
     #[test]
@@ -144,7 +160,7 @@ impl<'a> Parser<'a> {
     fn new(src: &'a str) -> Self {
         Self {
             src: src.lines(),
-            current_line: "".chars().peekable() // Never will be touched, and if it is, it'll throw an error.
+            current_line: "".chars().peekable(), // Never will be touched, and if it is, it'll throw an error.
         }
     }
 
@@ -155,9 +171,7 @@ impl<'a> Parser<'a> {
             match ch {
                 '[' => return Ok(text),
                 ']' => return Err(String::from("Unexpected `]`!")),
-                _ => {
-                    text.push(self.current_line.next().unwrap())
-                }
+                _ => text.push(self.current_line.next().unwrap()),
             }
         }
         Ok(text)
@@ -201,10 +215,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-
-        Ok(Question {
-            dat
-        })
+        Ok(Question { dat })
     }
 }
 
@@ -249,6 +260,8 @@ impl Question {
         Self { dat }
     }
 
+    // FIXME: The cursor renders as well
+    // Either we should move the cursor while typing or hide it.
     fn ask(&self, screen: &mut String) -> bool {
         let mut answers = Vec::new();
         let mut current = String::new();
@@ -276,7 +289,7 @@ impl Question {
                         }
                         _ => {
                             if ch as u32 == 127 {
-                                // TODO: Going back and editing previous answers
+                                // TODO(#1): Going back and editing previous answers
                                 // if let None = current.pop() {
                                 //     if let Some(ans) = answers.pop() {
                                 //         current = ans;
