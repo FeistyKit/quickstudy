@@ -13,6 +13,51 @@ mod tests {
 
         assert_eq!(Some(Ok(Question {dat: vec![(Option::<String>::None, Some("answer".to_string()))]})), question);
     }
+
+    #[test]
+    fn too_many_opens() {
+        let src = "[[answer]".to_string();
+
+        let question = Parser::new(&src).next();
+
+        assert_eq!(Some(Err(String::from("Unexpected `[`!"))), question);
+    }
+
+    #[test]
+    fn unclosed_answer() {
+        let src = "[answer".to_string();
+
+        let question = Parser::new(&src).next();
+
+        assert_eq!(Some(Err(String::from("Unexpected end of answer!"))), question);
+    }
+
+    #[test]
+    fn parse_valid_question() {
+        let src = "question [answer] question [answer]".to_string();
+
+        let question = Parser::new(&src).next();
+
+        assert_eq!(Some(Ok(Question {dat: vec![(Some("question ".to_string()), Some("answer".to_string())), (Some(" question ".to_string()), Some("answer".to_string()))]})), question);
+    }
+
+    #[test]
+    fn unexpected_closer_in_question() {
+        let src = "answer]".to_string();
+
+        let question = Parser::new(&src).next();
+
+        assert_eq!(Some(Err(String::from("Unexpected `]`!"))), question);
+    }
+
+    #[test]
+    fn unexpected_closer_in_answer() {
+        let src = "[answer]]".to_string();
+
+        let question = Parser::new(&src).next();
+
+        assert_eq!(Some(Err(String::from("Unexpected `]`!"))), question);
+    }
 }
 
 fn main() -> Result<(), String> {
@@ -104,7 +149,18 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_text(&mut self) -> Result<String, String> {
-        todo!()
+        let mut text = String::new();
+
+        while let Some(ch) = self.current_line.peek() {
+            match ch {
+                '[' => return Ok(text),
+                ']' => return Err(String::from("Unexpected `]`!")),
+                _ => {
+                    text.push(self.current_line.next().unwrap())
+                }
+            }
+        }
+        Ok(text)
     }
 
     fn parse_answer(&mut self) -> Result<String, String> {
@@ -115,6 +171,7 @@ impl<'a> Parser<'a> {
         while let Some(ch) = self.current_line.next() {
             match ch {
                 ']' => return Ok(answer),
+                '[' => return Err(String::from("Unexpected `[`!")),
                 _ => answer.push(ch),
             }
         }
@@ -126,21 +183,24 @@ impl<'a> Parser<'a> {
 
         self.current_line = line.chars().peekable();
 
-        match self.current_line.peek() {
-            Some('[') => dat.push((None, Some(self.parse_answer()?))),
-            Some(_) => {
-                let text = self.parse_text()?;
+        while self.current_line.peek().is_some() {
+            match self.current_line.peek() {
+                Some('[') => dat.push((None, Some(self.parse_answer()?))),
+                Some(_) => {
+                    let text = self.parse_text()?;
 
-                if self.current_line.peek().is_some() {
-                    // Has some characters left to consume
-                    dat.push((Some(text), Some(self.parse_answer()?)));
-                } else {
-                    // finished
-                    dat.push((Some(text), None));
+                    if self.current_line.peek().is_some() {
+                        // Has some characters left to consume
+                        dat.push((Some(text), Some(self.parse_answer()?)));
+                    } else {
+                        // finished
+                        dat.push((Some(text), None));
+                    }
                 }
+                None => unreachable!(),
             }
-            None => unreachable!(),
         }
+
 
         Ok(Question {
             dat
