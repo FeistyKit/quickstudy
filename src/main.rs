@@ -295,7 +295,7 @@ impl Question {
         Self { dat }
     }
 
-    // FIXME: The cursor renders as well
+    // TODO(#2): The cursor renders as well
     // Either we should move the cursor while typing or hide it.
     fn ask(&self, screen: &mut String) -> bool {
         let mut answers = Vec::new();
