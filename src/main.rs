@@ -1,5 +1,5 @@
 use ncurses;
-use std::{fmt, iter};
+use std::{env, fmt, fs, iter};
 
 #[cfg(test)]
 mod tests {
@@ -77,19 +77,40 @@ mod tests {
 }
 
 fn main() -> Result<(), String> {
+    let args = env::args().skip(0).collect::<Vec<String>>();
+
+    let src: String = args
+        .into_iter()
+        .filter_map(|path| match fs::read_to_string(&path) {
+            Err(e) => {
+                eprintln!("Could not read file `{path}`: {e}!");
+                None
+            }
+            Ok(s) => Some(s),
+        }).collect();
+
     init()?;
 
-    let q = Question::new(["q1", "q2", "q3"], ["a1", "a2", "a3"], true);
+    let mut screen = String::new();
 
-    let mut scr = String::new();
+    for maybe_question in Parser::new(&src) {
+        match maybe_question {
+            Err(e) => eprintln!("{e}"),
+            Ok(q) => {
+                if !q.ask(&mut screen) {
+                    screen.push('\n');
+                    screen.push_str(&format!("WRONG! Correct answer: {q}\n"));
+                }
+            },
+        }
+    }
 
-    let answer = q.ask(&mut scr);
+    ncurses::curs_set(ncurses::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
 
-    print("\n");
+    ncurses::clear();
+    ncurses::addstr(&screen);
 
-    print(answer);
-
-    print("\nPROGRAM FINISHED. PRESS ANY KEY TO EXIT");
+    print("PROGRAM FINISHED. PRESS ANY KEY TO EXIT");
 
     ncurses::refresh();
 
@@ -229,6 +250,20 @@ impl<'a> iter::Iterator for Parser<'a> {
     }
 }
 
+impl fmt::Display for Question {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (q, a) in &self.dat {
+            if let Some(s) = q {
+                write!(f, "{s}")?;
+            }
+            if let Some(a) = a {
+                write!(f, "{a}")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Question {
     fn new<T: ToString>(
         questions: impl iter::IntoIterator<Item = T>,
@@ -306,10 +341,15 @@ impl Question {
                 }
             }
         }
+
+        screen.push_str(&format!("{}\n", self));
         correct
     }
 
     fn render_partially_answered(&self, answers: &[String], current: &str, scr: &str) {
+        ncurses::clear();
+        ncurses::addstr(scr);
+
         let mut to_render = String::new();
         let mut pos = 0;
 
@@ -325,10 +365,6 @@ impl Question {
                         to_render.push_str(current);
                         ncurses::addstr(&to_render);
                         to_render.clear();
-                        let attr = ncurses::COLOR_PAIR(HIGHLIGHTED_COLOR);
-                        ncurses::attron(attr);
-                        ncurses::addch(' ' as u32);
-                        ncurses::attroff(attr);
                     }
                     std::cmp::Ordering::Greater => to_render.push_str("___"),
                 }
@@ -336,6 +372,13 @@ impl Question {
             }
         }
 
+        let mut x = 0;
+        let mut y = 0;
+
+        ncurses::getyx(ncurses::stdscr(), &mut y, &mut x);
+
         ncurses::addstr(&to_render);
+
+        ncurses::mv(y, x);
     }
 }
