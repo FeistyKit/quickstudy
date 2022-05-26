@@ -7,7 +7,11 @@ mod tests;
 use question::*;
 
 fn main() -> Result<(), String> {
-    let args = env::args().skip(0).collect::<Vec<String>>();
+    let mut args = env::args();
+
+    args.next(); // get rid of program name
+
+    let args = args.collect::<Vec<String>>();
 
     let src: String = args
         .into_iter()

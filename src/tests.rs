@@ -10,6 +10,7 @@ fn parse_answer_only() {
 
     assert_eq!(
         Some(Ok(Question {
+            pools: Vec::new(),
             dat: vec![(Option::<String>::None, Some("answer".to_string()))]
         })),
         question
@@ -45,6 +46,7 @@ fn parse_valid_question() {
 
     assert_eq!(
         Some(Ok(Question {
+            pools: Vec::new(),
             dat: vec![
                 (Some("question ".to_string()), Some("answer".to_string())),
                 (Some(" question ".to_string()), Some("answer".to_string()))

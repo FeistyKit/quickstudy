@@ -3,8 +3,34 @@ use std::{fmt, iter};
 use crate::get_char;
 
 #[derive(Debug, PartialEq, Eq)]
+enum Answer {
+    Raw(String),
+    SharedPool(usize), // Index into list of list of options.
+    OneOf(Vec<String>),
+}
+
+impl fmt::Display for Answer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Answer::Raw(s) => write!(f, "{s}"),
+            Answer::SharedPool(idx) => write!(f, "{{{idx}}}"),
+            Answer::OneOf(v) => {
+                for (idx, possible_answer) in v.iter().enumerate() {
+                    if idx > 0 {
+                        write!(f, " | ")?;
+                    }
+                    write!(f, "{possible_answer}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Question {
-    dat: Vec<(Option<String>, Option<String>)>,
+    dat: Vec<(Option<String>, Option<Answer>)>,
+    pools: Vec<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -36,29 +62,71 @@ impl<'a> Parser<'a> {
         Ok(text)
     }
 
-    fn parse_answer(&mut self) -> Result<String, String> {
-        assert_eq!(self.current_line.next(), Some('['));
+    fn parse_answer_pools(&mut self) -> Result<Vec<Vec<String>>, String> {
+        todo!()
+    }
 
-        let mut answer = String::new();
+    fn parse_idx_answer(&mut self) -> Result<usize, String> {
+        assert_eq!(self.current_line.next(), Some('{'));
+
+        let mut t = String::new();
 
         while let Some(ch) = self.current_line.next() {
             match ch {
-                ']' => return Ok(answer),
+                '}' => {
+                    return t
+                        .trim()
+                        .parse::<usize>()
+                        .map_err(|_| "Not a number!".to_string());
+                }
+                _ => t.push(ch),
+            }
+        }
+        Err(String::from("Expected end of answer!"))
+    }
+
+    fn parse_answer(&mut self) -> Result<Answer, String> {
+        assert_eq!(self.current_line.next(), Some('['));
+
+        let mut possible_answers = vec![];
+        let mut current_answer = String::new();
+
+        while let Some(ch) = self.current_line.next() {
+            match ch {
+                '|' => {
+                    possible_answers.push(current_answer.trim().to_string());
+                    current_answer = String::new();
+                }
+                ']' => {
+                    if possible_answers.is_empty() {
+                        return Ok(Answer::Raw(current_answer.trim().to_string()));
+                    } else {
+                        possible_answers.push(current_answer.trim().to_string());
+                        return Ok(Answer::OneOf(possible_answers));
+                    }
+                }
                 '[' => return Err(String::from("Unexpected `[`!")),
-                _ => answer.push(ch),
+                _ => current_answer.push(ch),
             }
         }
         Err(String::from("Unexpected end of answer!"))
     }
 
     fn parse_question(&mut self, line: &'a str) -> ParseResult {
-        let mut dat = Vec::new();
+        let mut dat: Vec<(Option<String>, Option<Answer>)> = Vec::new();
+        let mut promised_idxs = Vec::new();
+        let mut pools = None;
 
         self.current_line = line.chars().peekable();
 
         while self.current_line.peek().is_some() {
             match self.current_line.peek() {
                 Some('[') => dat.push((None, Some(self.parse_answer()?))),
+                Some('{') => {
+                    let idx = self.parse_idx_answer()?;
+                    promised_idxs.push(idx);
+                }
+                Some(';') => pools = Some(self.parse_answer_pools()?),
                 Some(_) => {
                     let text = self.parse_text()?;
 
@@ -74,7 +142,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Question { dat })
+        Ok(Question {
+            dat,
+            pools: pools.unwrap_or(Vec::new()),
+        })
     }
 }
 
@@ -109,6 +180,7 @@ impl Question {
         let mut answers = Vec::new();
         let mut current = String::new();
         let mut correct = true;
+        let mut used_from_pools = vec![vec![]; self.pools.len()];
 
         self.render_partially_answered(&answers, &current, &*screen);
 
@@ -119,8 +191,32 @@ impl Question {
 
                     match ch {
                         '\n' => {
-                            if a.trim() != current {
-                                correct = false;
+                            match a {
+                                Answer::Raw(r) => {
+                                    if r.trim() != current.trim() {
+                                        correct = false;
+                                    }
+                                }
+                                Answer::SharedPool(p) => {
+                                    let pool = self.pools.get(*p).expect("SharedPool answer variant should always hold a valid index!");
+                                    let mut gotten_correct_from_pool = false;
+                                    for (idx, correct_from_pool) in pool.iter().enumerate() {
+                                        if current.trim() == correct_from_pool.trim()
+                                            && !used_from_pools[*p].contains(&idx)
+                                        {
+                                            gotten_correct_from_pool = true;
+                                            used_from_pools[*p].push(idx);
+                                            break;
+                                        }
+                                    }
+                                    correct = gotten_correct_from_pool;
+                                }
+                                Answer::OneOf(possible_answers) => {
+                                    correct = correct
+                                        && possible_answers
+                                            .iter()
+                                            .any(|ans| ans.trim() == current.trim());
+                                }
                             }
 
                             answers.push(current);
