@@ -3,7 +3,7 @@ use std::{fmt, iter};
 use crate::get_char;
 
 #[derive(Debug, PartialEq, Eq)]
-enum Answer {
+pub enum Answer {
     Raw(String),
     SharedPool(usize), // Index into list of list of options.
     OneOf(Vec<String>),
@@ -29,8 +29,8 @@ impl fmt::Display for Answer {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Question {
-    dat: Vec<(Option<String>, Option<Answer>)>,
-    pools: Vec<Vec<String>>,
+    pub dat: Vec<(Option<String>, Option<Answer>)>,
+    pub pools: Vec<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -63,7 +63,35 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_answer_pools(&mut self) -> Result<Vec<Vec<String>>, String> {
-        todo!()
+        assert_eq!(self.current_line.next(), Some(';'));
+
+        let mut pools = Vec::new();
+        let mut current_pool = Vec::new();
+        let mut current_string = String::new();
+
+        for ch in &mut self.current_line {
+            match ch {
+                ';' => {
+                    if current_pool.is_empty() {
+                        return Err("Pool cannot be empty!".to_string());
+                    }
+                    pools.push(current_pool);
+                    current_pool = Vec::new();
+                }
+                ',' => {
+                    current_pool.push(current_string);
+                    current_string = String::new();
+                }
+                _ => current_string.push(ch),
+            }
+        }
+        if !current_string.is_empty() {
+            current_pool.push(current_string);
+        }
+        if !current_pool.is_empty() {
+            pools.push(current_pool);
+        }
+        Ok(pools)
     }
 
     fn parse_idx_answer(&mut self) -> Result<usize, String> {
@@ -71,7 +99,7 @@ impl<'a> Parser<'a> {
 
         let mut t = String::new();
 
-        while let Some(ch) = self.current_line.next() {
+        for ch in self.current_line.by_ref() {
             match ch {
                 '}' => {
                     return t
@@ -86,12 +114,16 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_answer(&mut self) -> Result<Answer, String> {
+        dbg!(self.current_line.peek());
+        if self.current_line.peek() == Some(&'{') {
+            return Ok(Answer::SharedPool(self.parse_idx_answer()?));
+        }
         assert_eq!(self.current_line.next(), Some('['));
 
         let mut possible_answers = vec![];
         let mut current_answer = String::new();
 
-        while let Some(ch) = self.current_line.next() {
+        for ch in self.current_line.by_ref() {
             match ch {
                 '|' => {
                     possible_answers.push(current_answer.trim().to_string());
@@ -119,15 +151,16 @@ impl<'a> Parser<'a> {
 
         self.current_line = line.chars().peekable();
 
-        while self.current_line.peek().is_some() {
-            match self.current_line.peek() {
-                Some('[') => dat.push((None, Some(self.parse_answer()?))),
-                Some('{') => {
+        while let Some(ch) = self.current_line.peek() {
+            match ch {
+                '[' => dat.push((None, Some(self.parse_answer()?))),
+                '{' => {
                     let idx = self.parse_idx_answer()?;
+                    dat.push((None, Some(Answer::SharedPool(idx - 1))));
                     promised_idxs.push(idx);
                 }
-                Some(';') => pools = Some(self.parse_answer_pools()?),
-                Some(_) => {
+                ';' => pools = Some(self.parse_answer_pools()?),
+                _ => {
                     let text = self.parse_text()?;
 
                     if self.current_line.peek().is_some() {
@@ -138,13 +171,33 @@ impl<'a> Parser<'a> {
                         dat.push((Some(text), None));
                     }
                 }
-                None => unreachable!(),
+            }
+        }
+
+        if !promised_idxs.is_empty() {
+            if pools.is_none() {
+                return Err(format!(
+                    "Expected {} pools, but none were provided!",
+                    promised_idxs.len()
+                ));
+            }
+            let pools = pools.as_ref().unwrap();
+            if promised_idxs.len() != pools.len() {
+                if promised_idxs.len() == 1 {
+                    return Err(format!("Expected 1 pool, but found {}!", pools.len()));
+                } else {
+                    return Err(format!(
+                        "Expected {} pools, but found {}!",
+                        promised_idxs.len(),
+                        pools.len()
+                    ));
+                }
             }
         }
 
         Ok(Question {
             dat,
-            pools: pools.unwrap_or(Vec::new()),
+            pools: pools.unwrap_or_default(),
         })
     }
 }
@@ -174,8 +227,6 @@ impl fmt::Display for Question {
 }
 
 impl Question {
-    // TODO(#2): The cursor renders as well
-    // Either we should move the cursor while typing or hide it.
     pub fn ask(&self, screen: &mut String) -> bool {
         let mut answers = Vec::new();
         let mut current = String::new();
@@ -259,7 +310,7 @@ impl Question {
 
         for (text, answer) in &self.dat {
             if let Some(s) = text {
-                to_render.push_str(&s);
+                to_render.push_str(s);
             }
 
             if answer.is_some() {

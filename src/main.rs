@@ -1,4 +1,3 @@
-use ncurses;
 use std::{env, fmt, fs};
 
 mod question;
@@ -11,10 +10,7 @@ fn main() -> Result<(), String> {
 
     args.next(); // get rid of program name
 
-    let args = args.collect::<Vec<String>>();
-
     let src: String = args
-        .into_iter()
         .filter_map(|path| match fs::read_to_string(&path) {
             Err(e) => {
                 eprintln!("Could not read file `{path}`: {e}!");
