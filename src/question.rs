@@ -1,4 +1,4 @@
-use std::{fmt, iter};
+use std::{collections, fmt, iter};
 
 use crate::get_char;
 
@@ -54,7 +54,7 @@ impl<'a> Parser<'a> {
 
         while let Some(ch) = self.current_line.peek() {
             match ch {
-                '[' => return Ok(text),
+                '[' | ';' | '{' => return Ok(text),
                 ']' => return Err(String::from("Unexpected `]`!")),
                 _ => text.push(self.current_line.next().unwrap()),
             }
@@ -72,8 +72,12 @@ impl<'a> Parser<'a> {
         for ch in &mut self.current_line {
             match ch {
                 ';' => {
-                    if current_pool.is_empty() {
+                    if current_pool.is_empty() && current_string.is_empty() {
                         return Err("Pool cannot be empty!".to_string());
+                    }
+                    if !current_string.is_empty() {
+                        current_pool.push(current_string);
+                        current_string = String::new();
                     }
                     pools.push(current_pool);
                     current_pool = Vec::new();
@@ -113,10 +117,14 @@ impl<'a> Parser<'a> {
         Err(String::from("Expected end of answer!"))
     }
 
-    fn parse_answer(&mut self) -> Result<Answer, String> {
-        dbg!(self.current_line.peek());
+    fn parse_answer(
+        &mut self,
+        promised_idxs: &mut collections::HashSet<usize>,
+    ) -> Result<Answer, String> {
         if self.current_line.peek() == Some(&'{') {
-            return Ok(Answer::SharedPool(self.parse_idx_answer()?));
+            let idx = self.parse_idx_answer()? - 1;
+            promised_idxs.insert(idx);
+            return Ok(Answer::SharedPool(idx));
         }
         assert_eq!(self.current_line.next(), Some('['));
 
@@ -146,26 +154,34 @@ impl<'a> Parser<'a> {
 
     fn parse_question(&mut self, line: &'a str) -> ParseResult {
         let mut dat: Vec<(Option<String>, Option<Answer>)> = Vec::new();
-        let mut promised_idxs = Vec::new();
+        let mut promised_idxs = collections::HashSet::new();
         let mut pools = None;
 
         self.current_line = line.chars().peekable();
 
         while let Some(ch) = self.current_line.peek() {
             match ch {
-                '[' => dat.push((None, Some(self.parse_answer()?))),
+                '[' => dat.push((None, Some(self.parse_answer(&mut promised_idxs)?))),
                 '{' => {
                     let idx = self.parse_idx_answer()?;
                     dat.push((None, Some(Answer::SharedPool(idx - 1))));
-                    promised_idxs.push(idx);
+                    promised_idxs.insert(idx);
                 }
                 ';' => pools = Some(self.parse_answer_pools()?),
                 _ => {
                     let text = self.parse_text()?;
 
-                    if self.current_line.peek().is_some() {
+                    if let Some(ch) = self.current_line.peek() {
                         // Has some characters left to consume
-                        dat.push((Some(text), Some(self.parse_answer()?)));
+                        let ans = match ch {
+                            ';' => {
+                                pools = Some(self.parse_answer_pools()?);
+                                None
+                            }
+                            '[' | '{' => Some(self.parse_answer(&mut promised_idxs)?),
+                            _ => unreachable!("The only things that would stop the parsing of text have already been matched")
+                        };
+                        dat.push((Some(text), ans));
                     } else {
                         // finished
                         dat.push((Some(text), None));
@@ -195,10 +211,14 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Question {
-            dat,
-            pools: pools.unwrap_or_default(),
-        })
+        let mut pools = pools.unwrap_or_default();
+        for pool in &mut pools {
+            for item in pool {
+                *item = item.trim().to_string();
+            }
+        }
+
+        Ok(Question { dat, pools })
     }
 }
 
