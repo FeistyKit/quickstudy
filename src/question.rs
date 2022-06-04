@@ -1,7 +1,5 @@
 use std::{collections, fmt, iter};
 
-use crate::get_char;
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum Answer {
     Raw(String),
@@ -13,11 +11,11 @@ impl fmt::Display for Answer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Answer::Raw(s) => write!(f, "{s}"),
-            Answer::SharedPool(idx) => write!(f, "{{{idx}}}"),
+            Answer::SharedPool(idx) => write!(f, "{{one of the #{} set}}", idx + 1),
             Answer::OneOf(v) => {
                 for (idx, possible_answer) in v.iter().enumerate() {
                     if idx > 0 {
-                        write!(f, " | ")?;
+                        write!(f, " OR ")?;
                     }
                     write!(f, "{possible_answer}")?;
                 }
@@ -242,14 +240,25 @@ impl fmt::Display for Question {
                 write!(f, "{a}")?;
             }
         }
+
+        for (idx, pool) in self.pools.iter().enumerate() {
+            write!(f, ". Set #{}: ", idx + 1)?;
+            for (item_idx, item) in pool.iter().enumerate() {
+                if item_idx > 0 {
+                    write!(f, ",")?;
+                }
+                write!(f, " {item}")?;
+            }
+        }
         Ok(())
     }
 }
 
 impl Question {
-    pub fn ask(&self, answers: Vec<String>) -> bool {
+    pub fn ask(&self, answers: Vec<String>) -> Option<String> {
 
         let mut used_from_pools = vec![Vec::new(); self.pools.len()];
+        let mut all_correct = true;
 
         for (expected, provided) in self.dat.iter()
                                             .filter_map(|(_, ans)| ans.as_ref())
@@ -285,10 +294,15 @@ impl Question {
             };
 
             if !correct {
-                return false;
+                all_correct = false;
             }
         }
-        true
+
+        if all_correct {
+            None
+        } else {
+            Some(format!("{self}"))
+        }
     }
 
 }

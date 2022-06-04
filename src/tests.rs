@@ -148,7 +148,7 @@ fn handles_raw_answer() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers));
+    assert!(question.ask(answers).is_none());
 }
 
 #[test]
@@ -160,14 +160,14 @@ fn handles_one_of_answer() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers));
+    assert!(question.ask(answers).is_none());
 
     let answers2 = vec!["may be", "real", "me"]
         .iter()
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers2));
+    assert!(question.ask(answers2).is_none());
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn handles_multiple_from_single() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answer));
+    assert!(question.ask(answer).is_none());
 }
 
 #[test]
@@ -198,5 +198,24 @@ fn handles_pool_items() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answer));
+    assert!(question.ask(answer).is_none());
+}
+
+#[test]
+fn shows_incorrect_answer() {
+    let question = Parser::new("[a], [b | c], {1}, {2}; e, f; g, h")
+        .next()
+        .unwrap()
+        .unwrap();
+
+    let answer = vec!["c", "a", "j", "m"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert_eq!(question.ask(answer),
+               Some("a, b OR c, {one of the #1 set}, {one of the #2 set}. Set #1:  e, f. Set #2:  g, h"
+                    .to_string()
+               )
+    );
 }

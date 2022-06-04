@@ -1,4 +1,4 @@
-use std::{env, fmt, fs};
+use std::{env, fs};
 
 mod render;
 mod question;
@@ -21,55 +21,14 @@ fn main() -> Result<(), String> {
         })
         .collect();
 
-    init()?;
-
-    let mut screen = String::new();
-
     for maybe_question in Parser::new(&src) {
         match maybe_question {
             Err(e) => eprintln!("{e}"),
             Ok(q) => {
-                if !q.ask(todo!()) {
-                    screen.push('\n');
-                    screen.push_str(&format!("WRONG! Correct answer: {q}\n"));
-                }
+
             }
         }
     }
-
-    ncurses::curs_set(ncurses::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
-
-    ncurses::clear();
-    ncurses::addstr(&screen);
-
-    print("PROGRAM FINISHED. PRESS ANY KEY TO EXIT");
-
-    ncurses::refresh();
-
-    get_char(); // Pause so that the person can see the finish of the program
-
-    ncurses::endwin();
-
     Ok(())
-}
 
-fn print<T: fmt::Display>(dat: T) {
-    let buf = format!("{dat}");
-    ncurses::addstr(&buf);
-}
-
-fn init() -> Result<(), String> {
-    ncurses::initscr();
-    ncurses::cbreak();
-    ncurses::noecho();
-
-    Ok(())
-}
-
-pub fn get_char() -> char {
-    let ch = ncurses::get_wch().unwrap();
-    match ch {
-        ncurses::WchResult::Char(c) => char::from_u32(c).expect("Could not decode from input!"),
-        ncurses::WchResult::KeyCode(_) => todo!("Handle other key inputs!"),
-    }
 }
