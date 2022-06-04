@@ -1,5 +1,6 @@
 use std::{env, fmt, fs};
 
+mod render;
 mod question;
 mod tests;
 
@@ -28,7 +29,7 @@ fn main() -> Result<(), String> {
         match maybe_question {
             Err(e) => eprintln!("{e}"),
             Ok(q) => {
-                if !q.ask(&mut screen) {
+                if !q.ask(todo!()) {
                     screen.push('\n');
                     screen.push_str(&format!("WRONG! Correct answer: {q}\n"));
                 }

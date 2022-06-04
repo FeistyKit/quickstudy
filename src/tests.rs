@@ -21,7 +21,7 @@ fn parse_answer_only() {
 }
 
 #[test]
-fn too_many_opens() {
+fn parse_too_many_opens() {
     let src = "[[answer]".to_string();
 
     let question = Parser::new(&src).next();
@@ -30,7 +30,7 @@ fn too_many_opens() {
 }
 
 #[test]
-fn unclosed_answer() {
+fn parse_unclosed_answer() {
     let src = "[answer".to_string();
 
     let question = Parser::new(&src).next();
@@ -66,7 +66,7 @@ fn parse_valid_question() {
 }
 
 #[test]
-fn unexpected_closer_in_question() {
+fn parse_unexpected_closer_in_question() {
     let src = "answer]".to_string();
 
     let question = Parser::new(&src).next();
@@ -75,7 +75,7 @@ fn unexpected_closer_in_question() {
 }
 
 #[test]
-fn unexpected_closer_in_answer() {
+fn parse_unexpected_closer_in_answer() {
     let src = "[answer]]".to_string();
 
     let question = Parser::new(&src).next();
@@ -84,7 +84,7 @@ fn unexpected_closer_in_answer() {
 }
 
 #[test]
-fn one_of_three() {
+fn parse_one_of_three() {
     let src = "[a1 | a2 | a3]".to_string();
 
     let question = Parser::new(&src).next();
@@ -106,7 +106,7 @@ fn one_of_three() {
 }
 
 #[test]
-fn one_shared_pool() {
+fn parse_one_shared_pool() {
     let question = Parser::new("{1}; abc").next();
 
     assert_eq!(
@@ -119,7 +119,7 @@ fn one_shared_pool() {
 }
 
 #[test]
-fn multiple_shared_pools() {
+fn parse_multiple_shared_pools() {
     let question = Parser::new("{1}, {1}, {2}, {2}; amogus, sus; cheese, man").next();
 
     assert_eq!(
@@ -137,4 +137,66 @@ fn multiple_shared_pools() {
         })),
         question
     );
+}
+
+#[test]
+fn handles_raw_answer() {
+    let question = Parser::new("This [is] a [test] progra[m]").next().unwrap().unwrap();
+
+    let answers = vec!["is", "test", "m"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(question.ask(answers));
+}
+
+#[test]
+fn handles_one_of_answer() {
+    let question = Parser::new("This [is | may be] a [test | real] progra[m | me]").next().unwrap().unwrap();
+
+    let answers = vec!["is", "test", "m"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(question.ask(answers));
+
+    let answers2 = vec!["may be", "real", "me"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(question.ask(answers2));
+}
+
+#[test]
+#[should_panic]
+// TODO: Come up with a better name for tests/handles_multiple_from_single
+// It's really confusing
+fn handles_multiple_from_single() {
+    let question = Parser::new("[fake | answer]").next().unwrap().unwrap();
+
+
+    let answer = vec!["fake | answer"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(question.ask(answer));
+}
+
+#[test]
+fn handles_pool_items() {
+    let question = Parser::new("The four seasons are: {1}, {1}, {1} and {1}. The best type of weather is either {2} or {2}; spring, summer, fall, winter; rain, snow, sun")
+        .next()
+        .unwrap()
+        .unwrap();
+
+    let answer = vec!["summer", "spring", "winter", "fall", "sun", "snow"]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+    assert!(question.ask(answer));
 }

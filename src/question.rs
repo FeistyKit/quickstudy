@@ -263,19 +263,20 @@ impl Question {
                     let pool = self.pools.get(*pool_idx)
                                          .expect("Indexes to shared pools should have been checked when question was constructed!");
 
-                    pool.iter().enumerate().filter(|(option_idx, option)| {
+                    let mut res = false;
+                    for (option_idx, option) in pool.iter().enumerate() {
                         let used = used_from_pools.get_mut(*pool_idx).unwrap();
 
-                        if used.is_empty()
-                            || !used.contains(option_idx)
+                        if (used.is_empty()
+                            || !used.contains(&option_idx))
                             && provided.trim().to_lowercase() == option.trim().to_lowercase() {
 
-                            used.push(*option_idx);
-                            true
-                        } else {
-                            false
+                            used.push(option_idx);
+                            res = true;
+                            break;
                         }
-                    }).next().is_some()
+                    }
+                    res
                 },
 
                 Answer::OneOf(options) => {
