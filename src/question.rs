@@ -247,113 +247,47 @@ impl fmt::Display for Question {
 }
 
 impl Question {
-    pub fn ask(&self, screen: &mut String) -> bool {
-        let mut answers = Vec::new();
-        let mut current = String::new();
-        let mut correct = true;
-        let mut used_from_pools = vec![vec![]; self.pools.len()];
+    pub fn ask(&self, answers: Vec<String>) -> bool {
 
-        self.render_partially_answered(&answers, &current, &*screen);
+        let mut used_from_pools = vec![Vec::new(); self.pools.len()];
 
-        for (_, answer) in &self.dat {
-            if let Some(a) = answer {
-                'word: loop {
-                    let ch = get_char();
+        for (expected, provided) in self.dat.iter()
+                                            .filter_map(|(_, ans)| ans.as_ref())
+                                            .zip(answers.iter()) {
 
-                    match ch {
-                        '\n' => {
-                            match a {
-                                Answer::Raw(r) => {
-                                    if r.trim() != current.trim() {
-                                        correct = false;
-                                    }
-                                }
-                                Answer::SharedPool(p) => {
-                                    let pool = self.pools.get(*p).expect("SharedPool answer variant should always hold a valid index!");
-                                    let mut gotten_correct_from_pool = false;
-                                    for (idx, correct_from_pool) in pool.iter().enumerate() {
-                                        if current.trim() == correct_from_pool.trim()
-                                            && !used_from_pools[*p].contains(&idx)
-                                        {
-                                            gotten_correct_from_pool = true;
-                                            used_from_pools[*p].push(idx);
-                                            break;
-                                        }
-                                    }
-                                    correct = gotten_correct_from_pool;
-                                }
-                                Answer::OneOf(possible_answers) => {
-                                    correct = correct
-                                        && possible_answers
-                                            .iter()
-                                            .any(|ans| ans.trim() == current.trim());
-                                }
-                            }
+            let correct = match expected {
+                Answer::Raw(raw) => raw.trim().to_lowercase() == provided.trim().to_lowercase(),
 
-                            answers.push(current);
-                            current = String::new();
+                Answer::SharedPool(pool_idx) => {
 
-                            self.render_partially_answered(&answers, &current, &*screen);
+                    let pool = self.pools.get(*pool_idx)
+                                         .expect("Indexes to shared pools should have been checked when question was constructed!");
 
-                            break 'word;
+                    pool.iter().enumerate().filter(|(option_idx, option)| {
+                        let used = used_from_pools.get_mut(*pool_idx).unwrap();
+
+                        if used.is_empty()
+                            || !used.contains(option_idx)
+                            && provided.trim().to_lowercase() == option.trim().to_lowercase() {
+
+                            used.push(*option_idx);
+                            true
+                        } else {
+                            false
                         }
-                        _ => {
-                            if ch as u32 == 127 {
-                                // TODO(#1): Going back and editing previous answers
-                                // if let None = current.pop() {
-                                //     if let Some(ans) = answers.pop() {
-                                //         current = ans;
-                                //     }
-                                // }
-                                current.pop();
-                            } else {
-                                current.push(ch);
-                            }
-                        }
-                    }
+                    }).next().is_some()
+                },
 
-                    self.render_partially_answered(&answers, &current, &*screen);
-                }
+                Answer::OneOf(options) => {
+                    options.iter().any(|opt| opt.trim().to_lowercase() == provided.trim().to_lowercase())
+                },
+            };
+
+            if !correct {
+                return false;
             }
         }
-
-        screen.push_str(&format!("{}\n", self));
-        correct
+        true
     }
 
-    fn render_partially_answered(&self, answers: &[String], current: &str, scr: &str) {
-        ncurses::clear();
-        ncurses::addstr(scr);
-
-        let mut to_render = String::new();
-        let mut pos = 0;
-
-        for (text, answer) in &self.dat {
-            if let Some(s) = text {
-                to_render.push_str(s);
-            }
-
-            if answer.is_some() {
-                match pos.cmp(&answers.len()) {
-                    std::cmp::Ordering::Less => to_render.push_str(&answers[pos]),
-                    std::cmp::Ordering::Equal => {
-                        to_render.push_str(current);
-                        ncurses::addstr(&to_render);
-                        to_render.clear();
-                    }
-                    std::cmp::Ordering::Greater => to_render.push_str("___"),
-                }
-                pos += 1;
-            }
-        }
-
-        let mut x = 0;
-        let mut y = 0;
-
-        ncurses::getyx(ncurses::stdscr(), &mut y, &mut x);
-
-        ncurses::addstr(&to_render);
-
-        ncurses::mv(y, x);
-    }
 }
