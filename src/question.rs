@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
 
         let mut t = String::new();
 
-        for (idx, ch) in self.current_line.by_ref() {
+        for (_, ch) in self.current_line.by_ref() {
             match ch {
                 '}' => {
                     return t
@@ -180,10 +180,11 @@ impl<'a> Parser<'a> {
                     promised_idxs.insert(idx);
                 }
                 ';' => {
-                    pool_idx = Some(idx);
+                    pool_idx = Some(*idx);
                     pools = Some(self.parse_answer_pools()?);
                 },
-                '}' | ']' => return Err((idx, String::from("Unexpected closing bracket!"))),
+                '}' => return Err((*idx, String::from("Unexpected `}`!"))),
+                ']' => return Err((*idx, String::from("Unexpected `]`!"))),
                 _ => {
                     let text = self.parse_text()?;
 
@@ -191,7 +192,7 @@ impl<'a> Parser<'a> {
                         // Has some characters left to consume
                         let ans = match ch {
                             ';' => {
-                                pool_idx = Some(idx);
+                                pool_idx = Some(*idx);
                                 pools = Some(self.parse_answer_pools()?);
                                 None
                             }
@@ -220,9 +221,9 @@ impl<'a> Parser<'a> {
             if promised_idxs.len() != pools.len() {
 
                 if promised_idxs.len() == 1 {
-                    return Err((*pool_idx.expect("The index to the start of the pools should always be set!"), format!("Expected 1 pool, but found {}!", pools.len())));
+                    return Err((pool_idx.expect("The index to the start of the pools should always be set!"), format!("Expected 1 pool, but found {}!", pools.len())));
                 } else {
-                    return Err((*pool_idx.expect("The index to the start of the pools should always be set!"),format!(
+                    return Err((pool_idx.expect("The index to the start of the pools should always be set!"),format!(
                         "Expected {} pools, but found {}!",
                         promised_idxs.len(),
                         pools.len()
@@ -248,7 +249,7 @@ impl<'a> iter::Iterator for Parser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (line_number, line) = self.src.next()?;
 
-        Some(self.parse_question(line).map_err(|(idx, msg)| format!("{}:{line_number}:{idx} {msg}", self.src_name)))
+        Some(self.parse_question(line).map_err(|(idx, msg)| format!("{}:{}:{} {msg}", self.src_name, line_number + 1, idx + 1)))
     }
 }
 
