@@ -1,6 +1,6 @@
 # Quickstudy
 
-A simple program to help studying. Currently, all questions have to be programmed into the source but I am working on fixing that. 
+A simple TUI program to help studying. 
 
 ## Running
 
