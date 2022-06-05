@@ -161,8 +161,8 @@ impl<'a> Parser<'a> {
             match ch {
                 '[' => dat.push((None, Some(self.parse_answer(&mut promised_idxs)?))),
                 '{' => {
-                    let idx = self.parse_idx_answer()?;
-                    dat.push((None, Some(Answer::SharedPool(idx - 1))));
+                    let idx = self.parse_idx_answer()? - 1;
+                    dat.push((None, Some(Answer::SharedPool(idx))));
                     promised_idxs.insert(idx);
                 }
                 ';' => pools = Some(self.parse_answer_pools()?),
@@ -255,7 +255,7 @@ impl fmt::Display for Question {
 }
 
 impl Question {
-    pub fn ask(&self, answers: Vec<String>) -> Option<String> {
+    pub fn check_answers(&self, answers: Vec<String>) -> Option<String> {
 
         let mut used_from_pools = vec![Vec::new(); self.pools.len()];
         let mut all_correct = true;
@@ -305,4 +305,11 @@ impl Question {
         }
     }
 
+    pub fn renderable(&self) -> impl Iterator<Item=(Option<&str>, bool)> {
+        self.dat.iter()
+                .map(|(q, ans)| (q.as_ref()
+                                 .map(|s| s.as_str()),
+                                 ans.is_some())
+                )
+    }
 }

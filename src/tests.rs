@@ -119,6 +119,19 @@ fn parse_one_shared_pool() {
 }
 
 #[test]
+fn parses_another_shared_pool() {
+    let question = Parser::new("{1} bcd {1}; a, b").next();
+
+    assert_eq!(
+        Some(Ok(Question {
+            dat: vec![(None, Some(Answer::SharedPool(0))), (Some(" bcd ".to_string()), Some(Answer::SharedPool(0)))],
+            pools: vec![vec!["a".to_string(), "b".to_string()]]
+        })),
+        question
+    )
+}
+
+#[test]
 fn parse_multiple_shared_pools() {
     let question = Parser::new("{1}, {1}, {2}, {2}; amogus, sus; cheese, man").next();
 
@@ -148,7 +161,7 @@ fn handles_raw_answer() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers).is_none());
+    assert!(question.check_answers(answers).is_none());
 }
 
 #[test]
@@ -160,14 +173,14 @@ fn handles_one_of_answer() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers).is_none());
+    assert!(question.check_answers(answers).is_none());
 
     let answers2 = vec!["may be", "real", "me"]
         .iter()
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answers2).is_none());
+    assert!(question.check_answers(answers2).is_none());
 }
 
 #[test]
@@ -183,7 +196,7 @@ fn handles_multiple_from_single() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answer).is_none());
+    assert!(question.check_answers(answer).is_none());
 }
 
 #[test]
@@ -198,7 +211,7 @@ fn handles_pool_items() {
         .map(ToString::to_string)
         .collect();
 
-    assert!(question.ask(answer).is_none());
+    assert!(question.check_answers(answer).is_none());
 }
 
 #[test]
@@ -213,7 +226,7 @@ fn shows_incorrect_answer() {
         .map(ToString::to_string)
         .collect();
 
-    assert_eq!(question.ask(answer),
+    assert_eq!(question.check_answers(answer),
                Some("a, b OR c, {one of the #1 set}, {one of the #2 set}. Set #1:  e, f. Set #2:  g, h"
                     .to_string()
                )
