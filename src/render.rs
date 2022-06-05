@@ -8,6 +8,8 @@ pub trait Render: Sized {
 
     fn init() -> Result<Self, String>;
 
+    fn display_error(&mut self, _err: &str) {}
+
     fn finish(&mut self) -> Result<(), String> {
         Ok(())
     }
@@ -151,6 +153,15 @@ impl Render for NCurses {
         ncurses::endwin();
 
         Ok(())
+    }
+
+    fn display_error(&mut self, err: &str) {
+        Self::print("ERROR: ");
+        Self::print(err);
+        Self::print(". Press any button to continue.\n");
+        Self::get_char();
+        ncurses::clear();
+        ncurses::addstr(&self.screen);
     }
 
     fn show_result(&mut self, correction: Option<String>) {

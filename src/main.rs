@@ -26,6 +26,7 @@ fn main() -> Result<(), String> {
                     match maybe_question {
                         Err(e) => {
                             eprintln!("{e}");
+                            window.display_error(&e);
                         },
                         Ok(q) => {
                             let answers = window.ask(q.renderable())?;
