@@ -31,20 +31,26 @@ pub struct Question {
     pub pools: Vec<Vec<String>>,
 }
 
+type SrcIter<'a> = iter::Filter<iter::Enumerate<std::str::Lines<'a>>, &'static dyn Fn(&(usize, &str)) -> bool>;
+
 #[derive(Debug)]
 pub struct Parser<'a> {
     src_name: &'a str,
-    src: iter::Enumerate<std::str::Lines<'a>>,
+    src: SrcIter<'a>,
     current_line: iter::Peekable<std::str::CharIndices<'a>>,
 }
 
 pub type ParseResult<T> = Result<T, (usize, String)>;
 
+fn is_valid_line((_, line): &(usize, &str)) -> bool {
+    !line.trim().is_empty() && !line.trim().starts_with('#')
+}
+
 impl<'a> Parser<'a> {
     pub fn new(src: &'a str, src_name: &'a str) -> Self {
         Self {
             src_name,
-            src: src.lines().enumerate(),
+            src: src.lines().enumerate().filter(&is_valid_line as &'static dyn Fn(&(usize, &str)) -> bool),
             current_line: "".char_indices().peekable(), // Never will be touched, and if it is, it'll throw an error.
         }
     }
