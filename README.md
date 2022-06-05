@@ -38,7 +38,7 @@ The four seasons are: {1}, {1}, {1}, {1}. The best kind of ice cream is either {
 #                      │              │         │                             ┌────────┘ │                             │    
 #                      │              │         Not all options have to be used.         │                             │ 
 #                      │              │                                                  │                             │ 
-#                      │              │                                                  This separates the regular que stion from the 
+#                      │              │                                                  This separates the regular question from the 
 #                      │              │                                                  start of the answers and each answer from the
 # The user can input four items from the first list (spring,                             next. However, you can't go back to questions
 # summer, fall, winter) in any order here. No repeats, though!                           after putting this in!
