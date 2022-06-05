@@ -5,6 +5,7 @@ mod question;
 mod tests;
 
 use question::*;
+use render::{NCurses, Render};
 
 fn main() -> Result<(), String> {
     let mut args = env::args();
@@ -21,11 +22,17 @@ fn main() -> Result<(), String> {
         })
         .collect();
 
+    let mut window = NCurses::init()?;
+
     for maybe_question in Parser::new(&src) {
         match maybe_question {
-            Err(e) => eprintln!("{e}"),
+            Err(e) => {
+                eprintln!("{e}");
+            },
             Ok(q) => {
-
+                let answers = window.ask(q.renderable())?;
+                let correction = q.check_answers(answers);
+                window.show_result(correction);
             }
         }
     }
