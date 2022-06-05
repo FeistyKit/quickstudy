@@ -33,45 +33,47 @@ pub struct Question {
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    src: std::str::Lines<'a>,
-    current_line: iter::Peekable<std::str::Chars<'a>>,
+    src_name: &'a str,
+    src: iter::Enumerate<std::str::Lines<'a>>,
+    current_line: iter::Peekable<std::str::CharIndices<'a>>,
 }
 
-pub type ParseResult = Result<Question, String>;
+pub type ParseResult<T> = Result<T, (usize, String)>;
 
 impl<'a> Parser<'a> {
-    pub fn new(src: &'a str) -> Self {
+    pub fn new(src: &'a str, src_name: &'a str) -> Self {
         Self {
-            src: src.lines(),
-            current_line: "".chars().peekable(), // Never will be touched, and if it is, it'll throw an error.
+            src_name,
+            src: src.lines().enumerate(),
+            current_line: "".char_indices().peekable(), // Never will be touched, and if it is, it'll throw an error.
         }
     }
 
-    fn parse_text(&mut self) -> Result<String, String> {
+    fn parse_text(&mut self) -> ParseResult<String> {
         let mut text = String::new();
 
-        while let Some(ch) = self.current_line.peek() {
+        while let Some((idx, ch)) = self.current_line.peek() {
             match ch {
                 '[' | ';' | '{' => return Ok(text),
-                ']' => return Err(String::from("Unexpected `]`!")),
-                _ => text.push(self.current_line.next().unwrap()),
+                ']' => return Err((*idx, String::from("Unexpected `]`!"))),
+                _ => text.push(self.current_line.next().unwrap().1),
             }
         }
         Ok(text)
     }
 
-    fn parse_answer_pools(&mut self) -> Result<Vec<Vec<String>>, String> {
-        assert_eq!(self.current_line.next(), Some(';'));
+    fn parse_answer_pools(&mut self) -> ParseResult<Vec<Vec<String>>> {
+        assert_eq!(self.current_line.next().map(|x| x.1), Some(';'));
 
         let mut pools = Vec::new();
         let mut current_pool = Vec::new();
         let mut current_string = String::new();
 
-        for ch in &mut self.current_line {
+        for (idx, ch) in &mut self.current_line {
             match ch {
                 ';' => {
                     if current_pool.is_empty() && current_string.is_empty() {
-                        return Err("Pool cannot be empty!".to_string());
+                        return Err((idx, "Pool cannot be empty!".to_string()));
                     }
                     if !current_string.is_empty() {
                         current_pool.push(current_string);
@@ -96,40 +98,48 @@ impl<'a> Parser<'a> {
         Ok(pools)
     }
 
-    fn parse_idx_answer(&mut self) -> Result<usize, String> {
-        assert_eq!(self.current_line.next(), Some('{'));
+    fn parse_idx_answer(&mut self) -> ParseResult<usize> {
+        let start = self.current_line.next();
+        assert_eq!(start.map(|x| x.1), Some('{'));
+
+        let start = start.unwrap().0;
 
         let mut t = String::new();
 
-        for ch in self.current_line.by_ref() {
+        for (idx, ch) in self.current_line.by_ref() {
             match ch {
                 '}' => {
                     return t
                         .trim()
                         .parse::<usize>()
-                        .map_err(|_| "Not a number!".to_string());
+                        .map_err(|_| (start, "Not a number!".to_string()));
                 }
                 _ => t.push(ch),
             }
         }
-        Err(String::from("Expected end of answer!"))
+        Err((start, String::from("Expected end of answer!")))
     }
 
     fn parse_answer(
         &mut self,
         promised_idxs: &mut collections::HashSet<usize>,
-    ) -> Result<Answer, String> {
-        if self.current_line.peek() == Some(&'{') {
+    ) -> ParseResult<Answer> {
+
+        if self.current_line.peek().map(|x| x.1) == Some('{') {
             let idx = self.parse_idx_answer()? - 1;
             promised_idxs.insert(idx);
             return Ok(Answer::SharedPool(idx));
         }
-        assert_eq!(self.current_line.next(), Some('['));
+
+        let start = self.current_line.next();
+        assert_eq!(start.map(|x| x.1), Some('['));
+
+        let start_idx = start.unwrap().0;
 
         let mut possible_answers = vec![];
         let mut current_answer = String::new();
 
-        for ch in self.current_line.by_ref() {
+        for (idx, ch) in self.current_line.by_ref() {
             match ch {
                 '|' => {
                     possible_answers.push(current_answer.trim().to_string());
@@ -143,21 +153,25 @@ impl<'a> Parser<'a> {
                         return Ok(Answer::OneOf(possible_answers));
                     }
                 }
-                '[' => return Err(String::from("Unexpected `[`!")),
+                '[' => return Err((idx, String::from("Unexpected `[`!"))),
                 _ => current_answer.push(ch),
             }
         }
-        Err(String::from("Unexpected end of answer!"))
+        Err((start_idx, String::from("Unexpected end of answer!")))
     }
 
-    fn parse_question(&mut self, line: &'a str) -> ParseResult {
+    fn parse_question(&mut self, line: &'a str) -> ParseResult<Question> {
         let mut dat: Vec<(Option<String>, Option<Answer>)> = Vec::new();
         let mut promised_idxs = collections::HashSet::new();
         let mut pools = None;
 
-        self.current_line = line.chars().peekable();
+        self.current_line = line.char_indices().peekable();
 
-        while let Some(ch) = self.current_line.peek() {
+        let mut last_idx = 0;
+        let mut pool_idx = None;
+
+        while let Some((idx, ch)) = self.current_line.peek() {
+            last_idx = *idx;
             match ch {
                 '[' => dat.push((None, Some(self.parse_answer(&mut promised_idxs)?))),
                 '{' => {
@@ -165,14 +179,19 @@ impl<'a> Parser<'a> {
                     dat.push((None, Some(Answer::SharedPool(idx))));
                     promised_idxs.insert(idx);
                 }
-                ';' => pools = Some(self.parse_answer_pools()?),
+                ';' => {
+                    pool_idx = Some(idx);
+                    pools = Some(self.parse_answer_pools()?);
+                },
+                '}' | ']' => return Err((idx, String::from("Unexpected closing bracket!"))),
                 _ => {
                     let text = self.parse_text()?;
 
-                    if let Some(ch) = self.current_line.peek() {
+                    if let Some((idx, ch)) = self.current_line.peek() {
                         // Has some characters left to consume
                         let ans = match ch {
                             ';' => {
+                                pool_idx = Some(idx);
                                 pools = Some(self.parse_answer_pools()?);
                                 None
                             }
@@ -190,21 +209,24 @@ impl<'a> Parser<'a> {
 
         if !promised_idxs.is_empty() {
             if pools.is_none() {
-                return Err(format!(
+                return Err((last_idx, format!(
                     "Expected {} pools, but none were provided!",
                     promised_idxs.len()
-                ));
+                )));
             }
+
             let pools = pools.as_ref().unwrap();
+
             if promised_idxs.len() != pools.len() {
+
                 if promised_idxs.len() == 1 {
-                    return Err(format!("Expected 1 pool, but found {}!", pools.len()));
+                    return Err((*pool_idx.expect("The index to the start of the pools should always be set!"), format!("Expected 1 pool, but found {}!", pools.len())));
                 } else {
-                    return Err(format!(
+                    return Err((*pool_idx.expect("The index to the start of the pools should always be set!"),format!(
                         "Expected {} pools, but found {}!",
                         promised_idxs.len(),
                         pools.len()
-                    ));
+                    )));
                 }
             }
         }
@@ -223,10 +245,10 @@ impl<'a> Parser<'a> {
 impl<'a> iter::Iterator for Parser<'a> {
     type Item = Result<Question, String>;
 
-    fn next(&mut self) -> Option<ParseResult> {
-        let line = self.src.next()?;
+    fn next(&mut self) -> Option<Self::Item> {
+        let (line_number, line) = self.src.next()?;
 
-        Some(self.parse_question(line))
+        Some(self.parse_question(line).map_err(|(idx, msg)| format!("{}:{line_number}:{idx} {msg}", self.src_name)))
     }
 }
 
@@ -306,10 +328,8 @@ impl Question {
     }
 
     pub fn renderable(&self) -> impl Iterator<Item=(Option<&str>, bool)> {
-        self.dat.iter()
-                .map(|(q, ans)| (q.as_ref()
-                                 .map(|s| s.as_str()),
-                                 ans.is_some())
-                )
+        self.dat
+            .iter()
+            .map(|(q, ans)| (q.as_ref().map(|s| s.as_str()), ans.is_some()))
     }
 }
