@@ -7,7 +7,8 @@ A simple program to help studying. Currently, all questions have to be programme
 ``` shell
 $ git clone https://www.github.com/feistykit/quickstudy
 $ cd quickstudy
-$ cargo run
+$ make
+$ ./quickstudy <input files>
 ```
 
 Requires [Rust](https://www.rustup.rs) and [ncurses](https://invisible-island.net/ncurses/announce.html) installed.
@@ -15,6 +16,7 @@ Requires [Rust](https://www.rustup.rs) and [ncurses](https://invisible-island.ne
 ## Usage
 
 Quickstudy takes a series of input files that describe the questions that should be asked, and then asks them. There is always one question per line, and a question cannot go over to multiple lines. All questions look like one of the two following:
+
 ```
 # This is a comment! For now, they are just full-line comments, but soon there'll be ones at the end of lines!
 
@@ -42,3 +44,4 @@ The four seasons are: {1}, {1}, {1}, {1}. The best kind of ice cream is either {
 # summer, fall, winter) in any order here. No repeats, though!                           after putting this in!
 ```
 
+Quickstudy can also search from as many files as you want to use, so you can just put them all in the command to call it!
