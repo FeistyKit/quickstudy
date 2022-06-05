@@ -1,6 +1,10 @@
+#[cfg(feature = "tui")]
 mod tui;
+mod cli;
 
+#[cfg(feature = "tui")]
 pub use tui::NCurses;
+pub use cli::Cli;
 
 use std::iter;
 

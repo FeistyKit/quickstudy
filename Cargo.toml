@@ -3,7 +3,12 @@ name = "quickstudy"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-ncurses = "5.101.0"
+ncurses = {version = "5.101.0", optional = true}
+
+# [target.'cfg(not(windows))'.features]
+# default = ["tui", "ncurses"]
+
+[features]
+tui = ["ncurses"]
+default = ["tui"]

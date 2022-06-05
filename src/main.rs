@@ -5,7 +5,10 @@ mod question;
 mod tests;
 
 use question::*;
+#[cfg(feature = "tui")]
 use render::{NCurses, Render};
+#[cfg(not(feature = "tui"))]
+use render::{Render, Cli};
 
 fn main() -> Result<(), String> {
     let mut args = env::args();
@@ -14,7 +17,10 @@ fn main() -> Result<(), String> {
 
     let args = args.collect::<Vec<String>>();
 
+    #[cfg(feature = "tui")]
     let mut window = NCurses::init()?;
+    #[cfg(not(feature = "tui"))]
+    let mut window = Cli::init()?;
 
     for path in args {
         match fs::read_to_string(&path) {
