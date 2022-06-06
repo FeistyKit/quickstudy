@@ -1,3 +1,7 @@
+.PHONY: no-ncurses
+no-ncurses: $(shell find src -type f)
+	cargo build --release --no-default-features && cp target/release/quickstudy .
+
 quickstudy: $(shell find src -type f)
 	cargo build --release && cp target/release/quickstudy .
 
