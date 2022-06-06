@@ -65,7 +65,7 @@ impl Render for Cli {
     fn init() -> Result<Self, String> {
         let stdin = io::stdin();
         Ok(Self {
-            stdin: stdin.lock()
+            stdin: stdin.lock() // If you get errors from this, you need to update your rust installation
         })
     }
 }

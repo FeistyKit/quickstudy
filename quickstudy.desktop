@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Terminal=true
+Exec=quickstudy
+Name=quickstudy
+Categories=Education
+Icon=icon
+X-AppImage-Version=2897fc2
