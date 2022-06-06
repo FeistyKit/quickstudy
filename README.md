@@ -19,7 +19,7 @@ Requires [Rust](https://www.rustup.rs) to compile and if you are using ncurses i
 
 ## Usage
 
-Quickstudy takes a series of input files that describe the questions that should be asked, and then asks them. There is always one question per line, and a question cannot go over to multiple lines. All questions look like one of the two following:
+Quickstudy takes a series of input files that describe the questions that should be asked, and then asks those questions to the user in the terminal. There is always one question per line, and a question cannot go over to multiple lines. All questions look like one of the two following:
 
 ```
 # This is a comment! For now, they are just full-line comments, but soon there'll be ones at the end of lines!
