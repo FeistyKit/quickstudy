@@ -4,14 +4,18 @@ A simple TUI program to help studying.
 
 ## Running
 
+If you're on Windows or Linux, you can simply download the executable or AppImage from the Releases tab and use that. If you're on MacOS or if you want to have the bleeding-edge releases, you can compile it yourself, like so:
+
 ``` shell
 $ git clone https://www.github.com/feistykit/quickstudy
 $ cd quickstudy
-$ make
+$ make quickstudy # If you want to not use ncurses, replace `quickstudy` with `no-ncurses`
 $ ./quickstudy <input files>
 ```
 
-Requires [Rust](https://www.rustup.rs) and [ncurses](https://invisible-island.net/ncurses/announce.html) installed.
+## Dependencies
+
+Requires [Rust](https://www.rustup.rs) to compile and if you are using ncurses it of course requires [ncurses](https://invisible-island.net/ncurses/announce.html) installed to compile. If you want to compile the AppImage (`make appimage`), you need [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) and [the linuxdeploy ncurses plugin](https://github.com/linuxdeploy/linuxdeploy-plugin-ncurses) in your PATH.
 
 ## Usage
 
